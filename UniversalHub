@@ -1,18 +1,3 @@
-from pathlib import Path
-
-code = r'''--[[
-    UNIVERSAL HUB v0.2 - Delta-compatible client UI
-    Intended only for an experience you own or are explicitly authorised to test.
-
-    Paste into Delta's script editor and execute while inside the authorised test
-    experience. Uses ordinary client-side Roblox Instances and services.
-
-    IMPORTANT:
-    - Character movement below is client-side and may be corrected by the server.
-    - This does not bypass server validation, cooldowns, anti-cheat, or permissions.
-    - The Script Library is a reference list only; it does not load/execute URLs.
-]]
-
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
