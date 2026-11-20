@@ -1,12 +1,12 @@
+
 --[[
-    UNIVERSAL HUB v0.2
-    Built on v0.1 UI Foundation
+    UNIVERSAL HUB v0.1
+    UI Foundation
     Roblox Studio LocalScript
 ]]
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
-local CollectionService = game:GetService("CollectionService")
 
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
@@ -14,7 +14,7 @@ local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 -- Prevent duplicate interfaces
 local Existing = PlayerGui:FindFirstChild("UniversalHub")
 if Existing then
-	Existing:Destroy()
+    Existing:Destroy()
 end
 
 --==================================================
@@ -22,123 +22,451 @@ end
 --==================================================
 
 local CONFIG = {
-	Title = "UNIVERSAL HUB",
-	Version = "v0.2",
-	Background = Color3.fromRGB(20, 22, 29),
-	Panel = Color3.fromRGB(29, 32, 42),
-	Secondary = Color3.fromRGB(39, 43, 55),
-	Accent = Color3.fromRGB(110, 130, 255),
-	Good = Color3.fromRGB(67, 158, 116),
-	Danger = Color3.fromRGB(194, 75, 83),
-	Text = Color3.fromRGB(240, 242, 255),
-	Muted = Color3.fromRGB(155, 161, 180),
-
-	LoopInterval = 0.5,
-	ItemRefreshInterval = 2.0,
-	TeleportOffset = Vector3.new(0, 3, 0),
-
-	-- Optional dedicated folders if your game uses them; falls back safely if absent
-	ItemFolders = { "Items", "Collectibles", "Drops", "Pickups" },
-	CollectibleTag = "Collectible",
-
-	-- Available / preset locations shown in Tab 4: Areas
-	AvailableAreas = {
-		{ Name = "Spawn", CFrame = CFrame.new(0, 5, 0) },
-	},
-}
-
--- Add as many entries as you want here; Tab 5 automatically builds them
-local SCRIPT_LIBRARY = {
-	{ Name = "script-entry-1", URL = "https://example.com/script-one.lua" },
-	{ Name = "script-entry-2", URL = "https://example.com/script-two.lua" },
+    Title = "UNIVERSAL HUB",
+    Version = "v0.1",
+    Background = Color3.fromRGB(20, 22, 29),
+    Panel = Color3.fromRGB(29, 32, 42),
+    Secondary = Color3.fromRGB(39, 43, 55),
+    Accent = Color3.fromRGB(110, 130, 255),
+    Text = Color3.fromRGB(240, 242, 255),
+    Muted = Color3.fromRGB(155, 161, 180),
 }
 
 local Tabs = {
-	"Introduction",
-	"Players",
-	"Items",
-	"Areas",
-	"Script Library",
+    "Introduction",
+    "Players",
+    "Items",
+    "Areas",
+    "Script Library"
 }
 
 --==================================================
--- RUNTIME STATE
+-- UI HELPERS
 --==================================================
 
-local State = {
-	SelectedPlayer = nil,
-	PlayerLoop = false,
-	Spectating = false,
+local function Create(class, properties, parent)
+    local object = Instance.new(class)
 
-	SelectedItem = nil,
-	ItemLoop = false,
+    for property, value in pairs(properties) do
+        object[property] = value
+    end
 
-	SelectedAvailableArea = nil,
-	SavedAreas = {},
+    object.Parent = parent
+    return object
+end
 
-	Running = true,
-}
+local function AddCorner(parent, radius)
+    Create("UICorner", {
+        CornerRadius = UDim.new(0, radius or 8)
+    }, parent)
+end
+
+local function AddPadding(parent, amount)
+    Create("UIPadding", {
+        PaddingTop = UDim.new(0, amount),
+        PaddingBottom = UDim.new(0, amount),
+        PaddingLeft = UDim.new(0, amount),
+        PaddingRight = UDim.new(0, amount)
+    }, parent)
+end
+
+local function CreateLabel(parent, text, size, color)
+    return Create("TextLabel", {
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, 0, 0, 30),
+        Font = Enum.Font.GothamMedium,
+        Text = text,
+        TextSize = size or 14,
+        TextColor3 = color or CONFIG.Text,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextWrapped = true
+    }, parent)
+end
+
+local function CreateButton(parent, text, callback)
+    local button = Create("TextButton", {
+        Size = UDim2.new(1, 0, 0, 42),
+        BackgroundColor3 = CONFIG.Secondary,
+        Text = text,
+        TextColor3 = CONFIG.Text,
+        Font = Enum.Font.GothamMedium,
+        TextSize = 13,
+        AutoButtonColor = true
+    }, parent)
+
+    AddCorner(button, 8)
+
+    if callback then
+        button.Activated:Connect(callback)
+    end
+
+    return button
+end
 
 --==================================================
--- CHARACTER & WORLD HELPERS
+-- MAIN SCREEN
 --==================================================
 
-local function GetCharacter(player)
-	return (player or LocalPlayer).Character
+local ScreenGui = Create("ScreenGui", {
+    Name = "UniversalHub",
+    ResetOnSpawn = false,
+    ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+}, PlayerGui)
+
+local Main = Create("Frame", {
+    Name = "Main",
+    AnchorPoint = Vector2.new(0.5, 0.5),
+    Position = UDim2.fromScale(0.5, 0.5),
+    Size = UDim2.fromScale(0.78, 0.76),
+    BackgroundColor3 = CONFIG.Background,
+    BorderSizePixel = 0
+}, ScreenGui)
+
+AddCorner(Main, 14)
+
+Create("UISizeConstraint", {
+    MinSize = Vector2.new(300, 300),
+    MaxSize = Vector2.new(850, 650)
+}, Main)
+
+--==================================================
+-- HEADER
+--==================================================
+
+local Header = Create("Frame", {
+    Name = "Header",
+    Size = UDim2.new(1, 0, 0, 48),
+    BackgroundColor3 = CONFIG.Panel,
+    BorderSizePixel = 0
+}, Main)
+
+AddCorner(Header, 12)
+
+local Title = CreateLabel(
+    Header,
+    CONFIG.Title .. "  " .. CONFIG.Version,
+    14,
+    CONFIG.Text
+)
+
+Title.Position = UDim2.fromOffset(14, 8)
+Title.Size = UDim2.new(1, -65, 0, 32)
+
+local MinimizeButton = Create("TextButton", {
+    Name = "Minimize",
+    AnchorPoint = Vector2.new(1, 0.5),
+    Position = UDim2.new(1, -10, 0.5, 0),
+    Size = UDim2.fromOffset(32, 30),
+    BackgroundColor3 = CONFIG.Secondary,
+    Text = "—",
+    TextColor3 = CONFIG.Text,
+    TextSize = 18,
+    Font = Enum.Font.GothamBold
+}, Header)
+
+AddCorner(MinimizeButton, 8)
+
+--==================================================
+-- TAB NAVIGATION
+--==================================================
+
+local TabBar = Create("ScrollingFrame", {
+    Name = "TabBar",
+    Position = UDim2.fromOffset(8, 56),
+    Size = UDim2.new(1, -16, 0, 42),
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    ScrollBarThickness = 2,
+    ScrollingDirection = Enum.ScrollingDirection.X,
+    AutomaticCanvasSize = Enum.AutomaticSize.X
+}, Main)
+
+local TabLayout = Create("UIListLayout", {
+    FillDirection = Enum.FillDirection.Horizontal,
+    Padding = UDim.new(0, 6),
+    SortOrder = Enum.SortOrder.LayoutOrder
+}, TabBar)
+
+--==================================================
+-- CONTENT AREA
+--==================================================
+
+local Content = Create("ScrollingFrame", {
+    Name = "Content",
+    Position = UDim2.fromOffset(10, 105),
+    Size = UDim2.new(1, -20, 1, -115),
+    BackgroundColor3 = CONFIG.Panel,
+    BorderSizePixel = 0,
+    ScrollBarThickness = 4,
+    AutomaticCanvasSize = Enum.AutomaticSize.Y,
+    CanvasSize = UDim2.new()
+}, Main)
+
+AddCorner(Content, 10)
+AddPadding(Content, 14)
+
+local ContentLayout = Create("UIListLayout", {
+    Padding = UDim.new(0, 10),
+    SortOrder = Enum.SortOrder.LayoutOrder
+}, Content)
+
+--==================================================
+-- TAB CONTENT
+--==================================================
+
+local TabPages = {}
+local TabButtons = {}
+
+local function CreatePage(name)
+    local page = Create("Frame", {
+        Name = name,
+        Size = UDim2.new(1, 0, 0, 0),
+        AutomaticSize = Enum.AutomaticSize.Y,
+        BackgroundTransparency = 1,
+        Visible = false
+    }, Content)
+
+    local layout = Create("UIListLayout", {
+        Padding = UDim.new(0, 10),
+        SortOrder = Enum.SortOrder.LayoutOrder
+    }, page)
+
+    TabPages[name] = page
+    return page
 end
 
-local function GetRoot(character)
-	return character and character:FindFirstChild("HumanoidRootPart")
+local function AddTab(name, order)
+    local button = Create("TextButton", {
+        Name = name,
+        Size = UDim2.fromOffset(125, 34),
+        BackgroundColor3 = CONFIG.Secondary,
+        Text = name,
+        TextColor3 = CONFIG.Muted,
+        TextSize = 12,
+        Font = Enum.Font.GothamMedium,
+        LayoutOrder = order
+    }, TabBar)
+
+    AddCorner(button, 8)
+
+    local page = CreatePage(name)
+    TabButtons[name] = button
+
+    button.Activated:Connect(function()
+        for tabName, tabPage in pairs(TabPages) do
+            tabPage.Visible = tabName == name
+        end
+
+        for tabName, tabButton in pairs(TabButtons) do
+            tabButton.BackgroundColor3 =
+                tabName == name and CONFIG.Accent
+                or CONFIG.Secondary
+
+            tabButton.TextColor3 =
+                tabName == name and CONFIG.Text
+                or CONFIG.Muted
+        end
+
+        Content.CanvasPosition = Vector2.zero
+    end)
+
+    return page
 end
 
-local function GetHumanoid(character)
-	return character and character:FindFirstChildOfClass("Humanoid")
+--==================================================
+-- TAB 1: INTRODUCTION
+--==================================================
+
+local Intro = AddTab(Tabs[1], 1)
+
+CreateLabel(Intro, "Welcome to Universal Hub", 20)
+
+CreateLabel(
+    Intro,
+    "A collection of utilities designed for organised gameplay testing and exploration.",
+    13,
+    CONFIG.Muted
+)
+
+CreateLabel(Intro, "Version: " .. CONFIG.Version, 12)
+
+--==================================================
+-- TAB 2: PLAYERS
+--==================================================
+
+local PlayersPage = AddTab(Tabs[2], 2)
+
+CreateLabel(PlayersPage, "Player Display", 18)
+
+CreateLabel(
+    PlayersPage,
+    "Player selection and authorised testing controls will be added here.",
+    13,
+    CONFIG.Muted
+)
+
+--==================================================
+-- TAB 3: ITEMS
+--==================================================
+
+local ItemsPage = AddTab(Tabs[3], 3)
+
+CreateLabel(ItemsPage, "Item Display", 18)
+
+CreateLabel(
+    ItemsPage,
+    "A searchable item collection will be added here.",
+    13,
+    CONFIG.Muted
+)
+
+--==================================================
+-- TAB 4: AREAS
+--==================================================
+
+local AreasPage = AddTab(Tabs[4], 4)
+
+CreateLabel(AreasPage, "Area Display", 18)
+
+CreateLabel(
+    AreasPage,
+    "Position saving, coordinate copying, and authorised location testing will be added here.",
+    13,
+    CONFIG.Muted
+)
+
+--==================================================
+-- TAB 5: SCRIPT LIBRARY
+--==================================================
+
+local LibraryPage = AddTab(Tabs[5], 5)
+
+CreateLabel(LibraryPage, "Script Library", 18)
+
+CreateLabel(
+    LibraryPage,
+    "Your script collection template will go here.",
+    13,
+    CONFIG.Muted
+)
+
+-- TEMPLATE FOR FUTURE LIBRARY ENTRIES:
+-- Add a data table for trusted, authorised scripts.
+-- Generate a UI row for every entry.
+-- Keep the list inside its own scrolling container.
+
+--==================================================
+-- TAB INITIALISATION
+--==================================================
+
+TabButtons["Introduction"].BackgroundColor3 = CONFIG.Accent
+TabButtons["Introduction"].TextColor3 = CONFIG.Text
+TabPages["Introduction"].Visible = true
+
+--==================================================
+-- MINIMIZE / RESTORE
+--==================================================
+
+local MiniButton = Create("TextButton", {
+    Name = "MiniButton",
+    AnchorPoint = Vector2.new(0.5, 0.5),
+    Position = UDim2.fromScale(0.5, 0.5),
+    Size = UDim2.fromOffset(55, 55),
+    BackgroundColor3 = CONFIG.Accent,
+    Text = "UH",
+    TextColor3 = CONFIG.Text,
+    Font = Enum.Font.GothamBold,
+    TextSize = 16,
+    Visible = false
+}, ScreenGui)
+
+AddCorner(MiniButton, 100)
+
+MinimizeButton.Activated:Connect(function()
+    Main.Visible = false
+    MiniButton.Visible = true
+end)
+
+MiniButton.Activated:Connect(function()
+    Main.Visible = true
+    MiniButton.Visible = false
+end)
+
+--==================================================
+-- DRAG SUPPORT: MOUSE AND TOUCH
+--==================================================
+
+local function MakeDraggable(handle, target)
+    local dragging = false
+    local dragStart
+    local startPosition
+    local activeInput
+
+    handle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+
+            dragging = true
+            activeInput = input
+            dragStart = input.Position
+            startPosition = target.Position
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if not dragging then return end
+
+        local matches =
+            input == activeInput
+            or input.UserInputType == Enum.UserInputType.MouseMovement
+
+        if matches then
+            local delta = input.Position - dragStart
+
+            target.Position = UDim2.new(
+                startPosition.X.Scale,
+                startPosition.X.Offset + delta.X,
+                startPosition.Y.Scale,
+                startPosition.Y.Offset + delta.Y
+            )
+        end
+    end)
+
+    UserInputService.InputEnded:Connect(function(input)
+        if input == activeInput
+            or input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+            activeInput = nil
+        end
+    end)
 end
 
-local function TeleportToCFrame(targetCFrame)
-	local char = GetCharacter()
-	local root = GetRoot(char)
-	if not char or not root or not targetCFrame then
-		return false
-	end
-	char:PivotTo(targetCFrame + CONFIG.TeleportOffset)
-	return true
+MakeDraggable(Header, Main)
+MakeDraggable(MiniButton, MiniButton)
+
+--==================================================
+-- RESPONSIVE SCREEN SIZE
+--==================================================
+
+local Camera = workspace.CurrentCamera
+
+local function UpdateLayout()
+    if not Camera then return end
+
+    local viewport = Camera.ViewportSize
+    local isMobile = viewport.X < 700
+
+    if isMobile then
+        Main.Size = UDim2.new(0.94, 0, 0.82, 0)
+    else
+        Main.Size = UDim2.new(0.78, 0, 0.76, 0)
+    end
 end
 
-local function GetInstanceCFrame(inst)
-	if not inst or not inst.Parent then
-		return nil
-	end
-	if inst:IsA("BasePart") then
-		return inst.CFrame
-	elseif inst:IsA("Model") then
-		return inst:GetPivot()
-	end
-	return nil
+UpdateLayout()
+
+if Camera then
+    Camera:GetPropertyChangedSignal("ViewportSize"):Connect(UpdateLayout)
 end
 
-local function FormatCoords(vec3)
-	return string.format("%.2f, %.2f, %.2f", vec3.X, vec3.Y, vec3.Z)
-end
-
--- Defines which objects count as collectible items (avoids scanning every workspace part)
-local function GetItemSearchRoots()
-	local roots = {}
-	for _, folderName in ipairs(CONFIG.ItemFolders) do
-		local found = workspace:FindFirstChild(folderName)
-		if found then
-			table.insert(roots, found)
-		end
-	end
-	return roots
-end
-
-local function IsCollectibleItem(inst, inDedicatedFolder)
-	if not inst or not inst.Parent then
-		return false
-	end
-	if not (inst:IsA("BasePart") or inst:IsA("Model")) then
-		return false
-	end
-
-	-- Avoid picking up character parts or baseplate/terrain structures
+print("[Universal Hub] Successfully initialized.")
